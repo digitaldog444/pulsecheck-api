@@ -54,9 +54,12 @@ export default function PulsecheckHomepage() {
               >
                 About
               </a>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <Link
+                href="/organization"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 Start Free Trial
-              </button>
+              </Link>
             </div>
 
             {/* Mobile Menu Button */}
@@ -346,7 +349,7 @@ export default function PulsecheckHomepage() {
                 </li>
               </ul>
               <Link
-                href="/register"
+                href="/organization"
                 className="w-full border-2 border-blue-600 text-blue-600 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-colors"
               >
                 Start Free Trial
@@ -400,7 +403,7 @@ export default function PulsecheckHomepage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/register"
+              href="/organization"
               className="bg-white text-blue-600 px-8 py-4 rounded-xl text-lg font-semibold hover:bg-gray-50 transition-colors"
             >
               Start Free Trial

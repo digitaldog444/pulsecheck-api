@@ -82,7 +82,7 @@ const RegisterPage: React.FC = () => {
 
     try {
       // Simulate API call
-      const response = await fetch("/api/auth/register", {
+      const response = await fetch("/api/auth/register-organization", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -155,7 +155,7 @@ const RegisterPage: React.FC = () => {
               htmlFor="name"
               className="block text-sm font-semibold text-gray-700"
             >
-              Name
+              Organization Name
             </label>
             <input
               type="text"

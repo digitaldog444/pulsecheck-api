@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LineChart,
   Line,
@@ -23,6 +23,7 @@ import {
   Download,
   RefreshCw,
 } from "lucide-react";
+import { toast } from "react-toastify";
 
 // Types
 interface TeamMetrics {
@@ -60,7 +61,28 @@ const PulsecheckDashboard = () => {
   const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d">("30d");
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  const verifyLogin = async () => {
+    const response = await fetch("/api/auth/verify-organization", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: localStorage.getItem("organization_token"),
+      }),
+    });
+    const data = await response.json();
+    if (data.success) {
+      localStorage.setItem("organization", JSON.stringify(data.organization));
+      setIsAuthenticated(true);
+    } else {
+      toast.error(data.error);
+      window.location.href = "/login";
+    }
+  };
+  useEffect(() => {
+    verifyLogin();
+  });
   // Mock data - replace with actual API calls
   const [teamMetrics] = useState<TeamMetrics>({
     totalResponses: 847,
@@ -176,6 +198,14 @@ const PulsecheckDashboard = () => {
     }
     return null;
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <h1>You must be logged in to view this page.</h1>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

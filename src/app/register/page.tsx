@@ -164,44 +164,6 @@ const RegisterPage: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Name Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="firstName"
-                className="block text-sm font-semibold text-gray-700"
-              >
-                First Name
-              </label>
-              <input
-                type="text"
-                id="firstName"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleInputChange}
-                required
-                className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl text-base transition-all duration-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 focus:-translate-y-0.5 hover:border-gray-300 text-black"
-              />
-            </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="lastName"
-                className="block text-sm font-semibold text-gray-700"
-              >
-                Last Name
-              </label>
-              <input
-                type="text"
-                id="lastName"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleInputChange}
-                required
-                className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl text-base transition-all duration-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 focus:-translate-y-0.5 hover:border-gray-300 text-black"
-              />
-            </div>
-          </div>
-
           {/* Email */}
           <div className="space-y-2">
             <label
@@ -221,7 +183,7 @@ const RegisterPage: React.FC = () => {
             />
           </div>
 
-          {/* Email */}
+          {/* Organization ID */}
           <div className="space-y-2">
             <label
               htmlFor="email"
