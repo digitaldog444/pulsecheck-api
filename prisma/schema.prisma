@@ -1,0 +1,400 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Organization model for multi-tenancy
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  email        String   @unique
+  domain      String?  @unique // Optional domain for SSO
+  settings    Json     @default("{}")
+  passwordHash String?
+  
+  // Subscription details
+  plan        PlanType @default(FREE_TRIAL)
+  maxUsers    Int      @default(10)
+  trialEndsAt DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  checkins    CheckIn[]
+  teams       Team[]
+  invites     Invite[]
+  
+  @@map("organizations")
+}
+
+// User model with role-based access
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  avatarUrl      String?
+  role           UserRole @default(EMPLOYEE)
+  
+  // Organization relationship
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Team relationship (optional)
+  teamId         String?
+  team           Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
+  // Manager relationship (self-referencing)
+  managerId      String?
+  manager        User?    @relation("ManagerEmployee", fields: [managerId], references: [id])
+  directReports  User[]   @relation("ManagerEmployee")
+  
+  // Authentication
+  passwordHash   String?
+  emailVerified  Boolean  @default(false)
+  lastLoginAt    DateTime?
+  
+  // Privacy settings
+  isActive       Boolean  @default(true)
+  notificationsEnabled Boolean @default(true)
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  checkins       CheckIn[]
+  invitedUsers   Invite[]
+  teamsLed       Team[]   @relation("TeamLead")
+  notificationSettings NotificationSetting?
+  
+  // Indexes for performance
+  @@index([organizationId])
+  @@index([teamId])
+  @@index([managerId])
+  @@map("users")
+}
+
+// Team model for grouping users
+model Team {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  color          String?  @default("#3B82F6")
+  
+  // Organization relationship
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Team lead
+  leadId         String?
+  lead           User?    @relation("TeamLead", fields: [leadId], references: [id])
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  members        User[]
+  
+  @@unique([organizationId, name])
+  @@map("teams")
+}
+
+// Core check-in model - the heart of the application
+model CheckIn {
+  id             String   @id @default(cuid())
+  
+  // User and organization
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Check-in date (unique per user per day)
+  date           DateTime @db.Date
+  
+  // Core metrics (1-5 scale)
+  moodScore      Int      // 1 = Very Poor, 5 = Excellent
+  energyScore    Int      // 1 = Exhausted, 5 = Energized
+  workloadScore  Int      // 1 = Overwhelming, 5 = Very Manageable
+  
+  // Optional feedback
+  notes          String?  @db.Text
+  
+  // Categories for additional context
+  stressFactors  String[] @default([]) // Array of predefined stress factors
+  positives      String[] @default([]) // What went well
+  
+  // Metadata
+  completedAt    DateTime @default(now())
+  timeToComplete Int?     // Time in seconds to complete check-in
+  
+  // Privacy flag (for potential future use)
+  isAnonymous    Boolean  @default(false)
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([organizationId, date])
+  @@index([userId, createdAt])
+  @@map("checkins")
+}
+
+// Invitation system for onboarding
+model Invite {
+  id             String      @id @default(cuid())
+  email          String
+  role           UserRole    @default(EMPLOYEE)
+  
+  // Organization relationship
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Invited by
+  invitedById    String
+  invitedBy      User        @relation(fields: [invitedById], references: [id])
+  
+  // Team assignment (optional)
+  teamId         String?
+  
+  // Invitation status
+  status         InviteStatus @default(PENDING)
+  token          String       @unique @default(cuid())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  
+  // Timestamps
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([token])
+  @@map("invites")
+}
+
+// Analytics aggregation tables for performance
+model DailyTeamStats {
+  id             String   @id @default(cuid())
+  
+  // Organization and team
+  organizationId String
+  teamId         String?  // null for organization-wide stats
+  date           DateTime @db.Date
+  
+  // Aggregated metrics
+  totalCheckins  Int
+  avgMoodScore   Float
+  avgEnergyScore Float
+  avgWorkloadScore Float
+  
+  // Participation metrics
+  activeUsers    Int
+  totalUsers     Int
+  participationRate Float
+  
+  // Risk indicators
+  lowMoodCount   Int      // Count of mood scores <= 2
+  highStressCount Int     // Count of workload scores <= 2
+  riskScore      Float    // Calculated risk score
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, teamId, date])
+  @@index([organizationId, date])
+  @@map("daily_team_stats")
+}
+
+// Weekly aggregations for trend analysis
+model WeeklyTeamStats {
+  id             String   @id @default(cuid())
+  
+  // Organization and team
+  organizationId String
+  teamId         String?
+  weekStart      DateTime @db.Date // Monday of the week
+  
+  // Aggregated metrics
+  totalCheckins  Int
+  avgMoodScore   Float
+  avgEnergyScore Float
+  avgWorkloadScore Float
+  
+  // Trend indicators
+  moodTrend      Float    // Week-over-week change
+  energyTrend    Float
+  workloadTrend  Float
+  
+  // Participation metrics
+  avgParticipationRate Float
+  consistentUsers Int    // Users who checked in 4+ days
+  
+  // Risk metrics
+  avgRiskScore   Float
+  alertsTriggered Int
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, teamId, weekStart])
+  @@index([organizationId, weekStart])
+  @@map("weekly_team_stats")
+}
+
+// Alert system for early intervention
+model Alert {
+  id             String      @id @default(cuid())
+  
+  // Organization
+  organizationId String
+  
+  // Alert details
+  type           AlertType
+  severity       AlertSeverity
+  title          String
+  description    String
+  
+  // Target (can be user, team, or organization-wide)
+  targetType     TargetType
+  targetId       String?     // userId or teamId
+  
+  // Alert data
+  metadata       Json        @default("{}")
+  
+  // Status
+  status         AlertStatus @default(ACTIVE)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  
+  // Timestamps
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([organizationId, status])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+// Notification preferences and delivery
+model NotificationSetting {
+  id             String   @id @default(cuid())
+  
+  // User
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Notification preferences
+  dailyReminder  Boolean  @default(true)
+  reminderTime   String   @default("09:00") // HH:MM format
+  weeklyDigest   Boolean  @default(true)
+  alertsEnabled  Boolean  @default(true)
+  
+  // Delivery channels
+  emailEnabled   Boolean  @default(true)
+  pushEnabled    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("notification_settings")
+}
+
+// Audit log for compliance and debugging
+model AuditLog {
+  id             String   @id @default(cuid())
+  
+  // Organization context
+  organizationId String
+  
+  // User who performed the action
+  userId         String?
+  userEmail      String?  // Store email for deleted users
+  
+  // Action details
+  action         String   // e.g., "checkin.created", "user.invited"
+  resource       String   // e.g., "CheckIn", "User"
+  resourceId     String?
+  
+  // Request context
+  ipAddress      String?
+  userAgent      String?
+  
+  // Data
+  oldValues      Json?
+  newValues      Json?
+  metadata       Json     @default("{}")
+  
+  // Timestamp
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  SUPER_ADMIN    // Platform admin
+  ORG_ADMIN      // Organization admin
+  MANAGER        // Team manager
+  EMPLOYEE       // Regular employee
+}
+
+enum PlanType {
+  FREE_TRIAL
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum AlertType {
+  LOW_MOOD_TREND
+  HIGH_STRESS_PATTERN
+  LOW_PARTICIPATION
+  BURNOUT_RISK
+  TEAM_MOOD_DROP
+  WORKLOAD_SPIKE
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TargetType {
+  USER
+  TEAM
+  ORGANIZATION
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
