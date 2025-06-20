@@ -5,8 +5,7 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 export const POST = async (req: NextRequest) => {
-  const { email, password, firstName, lastName, organizationId } =
-    await req.json();
+  const { email, password, organizationId } = await req.json();
   const user = await prisma.user.findFirst({ where: { email } });
   if (user) {
     return NextResponse.json(
